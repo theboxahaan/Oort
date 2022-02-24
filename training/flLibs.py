@@ -282,7 +282,7 @@ def init_dataset():
             clip_steps = 50
             train_dataset = datasets.HMDB51(root = args.data_dir, annotation_path = annotations_data, frames_per_clip = num_frames,step_between_clips = clip_steps, train = True,transform = data_transforms['train'])
 
-            test_datatset = None
+            test_dataset = None
 
         else:
             print('DataSet must be {}!'.format(['Mnist', 'Cifar', 'openImg', 'blog', 'stackoverflow', 'speech', 'yelp']))

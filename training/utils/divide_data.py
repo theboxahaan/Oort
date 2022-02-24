@@ -64,7 +64,7 @@ class DataPartitioner(object):
         self.targets = OrderedDict()                                            # set an OrderedDict for some labels
         self.indexToLabel = {}
         self.totalSamples = 0
-        self.data_len = len(self.indices)
+        self.data_len = len(self.data.indices)
 
         self.task = args.task                                                   # this is set to 'activity_recognition'
         self.skip_partition = True if self.labels[0] is -1 or args.skip_partition is True else False    # default becomes false but what does skip_partiton do ?

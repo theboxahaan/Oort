@@ -480,12 +480,15 @@ def run(rank, model, queue, param_q, stop_flag, client_cfg):
             if not args.test_only:
                 # dump a copy of model
                 with open(tempModelPath, 'wb') as fout:                         # dump a pickle of the current model at tempModelPath
-                    pickle.dump(model, fout)
+                    # pickle.dump(model, fout)
+                    torch.save(model, fout)
+
 
                 for idx, nextClientId in enumerate(nextClientIds):              # first entry is --> whatever is sent by the server
                     # roll back to the global model for simulation
                     with open(tempModelPath, 'rb') as fin:                      # load the just written model :O
-                        model = pickle.load(fin)
+                        # model = pickle.load(fin)
+                        model = torch.load(fin)
 
                     _model_param, _loss, _trained_size, _speed, _time, _isSuccess = run_client(
                                 clientId=nextClientId,                          # whatever sent by the server --> 1
