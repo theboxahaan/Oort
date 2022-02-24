@@ -28,7 +28,8 @@ parser.add_argument('--release_cache', type=bool, default=False)
 parser.add_argument('--clock_factor', type=float, default=2.5, help="Refactor the clock time given the profile")
 
 # The configuration of model and dataset
-parser.add_argument('--data_dir', type=str, default='~/cifar10/')
+# parser.add_argument('--data_dir', type=str, default='~/cifar10/')
+parser.add_argument("--data_dir", type=str, default="hmdb51/video_data", help=f"Directory where videos are stored")
 parser.add_argument('--save_path', type=str, default='./')
 parser.add_argument('--client_path', type=str, default='/tmp/client.cfg')
 parser.add_argument('--model', type=str, default='shufflenet_v2_x2_0')
@@ -289,12 +290,22 @@ parser.add_argument('--noise-max', default=0.5,
 parser.add_argument('--no-bidirectional', dest='bidirectional', action='store_false', default=True,
                     help='Turn off bi-directional RNNs, introduces lookahead convolution')
 
+
+# Add arguments for HMDB51
+parser.add_argument('-niid',"--non_iid_bias", type=float, default=0.0, help=f"0 for iid; 1 for extreme non-iid data distribution")
+# parser.add_argument('-p',"--port", type=int, default=10001, help=f"beta-scaling factor")
+parser.add_argument('-s',"--dataslice", type=int, default=1, help=f"data split from 1 to 4 or 12")
+parser.add_argument('-n',"--device-setup", type=int, default=4, help=f"4 device setup or 12 device setup")
+# parser.add_argument("--data_dir", type=str, default="hmdb51/video_data", help=f"Directory where videos are stored")
+
+
 args = parser.parse_args()
 
 
 
 datasetCategories = {'Mnist': 10, 'cifar10': 10, "imagenet": 1000, 'emnist': 47,
-                    'openImg': 596, 'google_speech': 35, 'femnist': 62, 'yelp': 5
+                    'openImg': 596, 'google_speech': 35, 'femnist': 62, 'yelp': 5,
+                    'hmdb51':51
                     }
 
 # Profiled relative speech w.r.t. Mobilenet

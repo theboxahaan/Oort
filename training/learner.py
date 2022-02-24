@@ -26,7 +26,7 @@ sampledClientSet = set()
 malicious_clients = set()
 flip_label_mapping = {}
 
-workers = [int(v) for v in str(args.learners).split('-')]
+workers = [int(v) for v in str(args.learners).split('-')]       # basically becomes a list of client_ids [1,2,3,4]
 
 os.environ['MASTER_ADDR'] = args.ps_ip
 os.environ['MASTER_PORT'] = args.ps_port
@@ -70,17 +70,17 @@ def generate_malicious_clients(compromised_ratio, num_of_clients, random_seed=0)
 def report_data_info(rank, queue):
     global nextClientIds, global_trainDB
 
-    client_div = global_trainDB.getDistance()
+    client_div = global_trainDB.getDistance()                                           # returns [0,0,0,0]
     # report data information to the clientSampler master
     queue.put({
-        rank: [client_div, global_trainDB.getSize()]
+        rank: [client_div, global_trainDB.getSize()]                                    # getSize() retuns list of parition lengths
     })
 
-    clientIdToRun = torch.zeros([world_size - 1], dtype=torch.int).to(device=device)
-    dist.broadcast(tensor=clientIdToRun, src=0)
-    nextClientIds = [clientIdToRun[args.this_rank - 1].item()]
+    clientIdToRun = torch.zeros([world_size - 1], dtype=torch.int).to(device=device)    # basically [0,0,0,0]
+    dist.broadcast(tensor=clientIdToRun, src=0)                                         # get clientIdToRun[] from the server `src=0`
+    nextClientIds = [clientIdToRun[args.this_rank - 1].item()]                          # will most probably be a single clientId since doing a .item()
 
-    if args.malicious_clients > 0:
+    if args.malicious_clients > 0:                                                      #TODO not looking at this yet
         generate_malicious_clients(args.malicious_clients, len(client_div))
         generate_flip_mapping(args.num_class)
 
@@ -88,7 +88,7 @@ def init_myprocesses(rank, size, model,
                    q, param_q, stop_flag,
                    fn, backend, client_cfg):
     print("====Worker: init_myprocesses")
-    fn(rank, model, q, param_q, stop_flag, client_cfg)
+    fn(rank, model, q, param_q, stop_flag, client_cfg)      # call -> run(client_id<1,2,3,4>, Net(), queue, parameter queue, threadsafe stop-flag, {})
 
 def scan_models(path):
     files = os.listdir(path)
@@ -144,15 +144,22 @@ def voice_collate_fn(batch):
 # =================== simulating different clients =====================#
 
 def run_client(clientId, cmodel, iters, learning_rate, argdicts = {}):
-    global global_trainDB, global_data_iter, last_model_tensors, tokenizer
+    global global_trainDB, global_data_iter, last_model_tensors, tokenizer              # DataPartioner, {}, [contains model params], None(tokeniser used only for nlp)
     global malicious_clients, flip_label_mapping
 
-    logging.info(f"Start to run client {clientId} ...")
+    logging.info(f"Start to run client {clientId} ...")                                 # clientID would be a 0 here ?!?!?!?
 
     curBatch = -1
 
-    if args.task != 'nlp' and args.task != 'text_clf':
+    if args.task == 'activity_recognition':
+        import torch.optim as optim
+        momentum = 0.9
+        decay_reg = 0.02
+        optimizer = optim.SGD(cmodel.parameters(), lr=learning_rate, momentum=momentum, weight_decay=decay_reg) 
+
+    elif args.task != 'nlp' and args.task != 'text_clf':
         optimizer = MySGD(cmodel.parameters(), lr=learning_rate, momentum=0.9, weight_decay=5e-4)
+    
     else:
         no_decay = ["bias", "LayerNorm.weight"]
         optimizer_grouped_parameters = [
@@ -169,7 +176,8 @@ def run_client(clientId, cmodel, iters, learning_rate, argdicts = {}):
     if args.task == 'voice':
         criterion = CTCLoss(reduction='none').to(device=device)
     else:
-        criterion = torch.nn.CrossEntropyLoss(reduction='none').to(device=device)
+        # criterion = torch.nn.CrossEntropyLoss(reduction='none').to(device=device)
+        torch.nn.CrossEntropyLoss(reduction="mean").to(device=device)
 
     train_data_itr_list = []
     collate_fn = None
@@ -179,16 +187,16 @@ def run_client(clientId, cmodel, iters, learning_rate, argdicts = {}):
     elif args.task == 'voice':
         collate_fn = voice_collate_fn
 
-    if clientId not in global_data_iter:
-        client_train_data = select_dataset(
-                                clientId, global_trainDB,
-                                batch_size=args.batch_size,
-                                collate_fn=collate_fn
+    if clientId not in global_data_iter:                                    # on first run global_data_iter -> {}
+        client_train_data = select_dataset(                                 # get a DataLoader back
+                                clientId, global_trainDB,                   # clientID = 1 :()
+                                batch_size=args.batch_size,                 # can control from .yml file
+                                collate_fn=collate_fn                       # None
                             )
 
-        train_data_itr = iter(client_train_data)
-        total_batch_size = len(train_data_itr)
-        global_data_iter[clientId] = [train_data_itr, curBatch, total_batch_size, argdicts['iters']]
+        train_data_itr = iter(client_train_data)                            # iterator on DataLoader
+        total_batch_size = len(train_data_itr)                              # dont know how this works
+        global_data_iter[clientId] = [train_data_itr, curBatch, total_batch_size, argdicts['iters']]    # create an entry in global_data_iter[0] = [iterator on Partition, -1, partition length, first -->1 a.k.a epoch #]
     else:
         [train_data_itr, curBatch, total_batch_size, epo] = global_data_iter[clientId]
 
@@ -198,7 +206,7 @@ def run_client(clientId, cmodel, iters, learning_rate, argdicts = {}):
     norm_gradient = 0.
     count = 0
 
-    train_data_itr_list.append(train_data_itr)
+    train_data_itr_list.append(train_data_itr)                              # why do we need this ?
     run_start = time.time()
 
     numOfFailures = 0
@@ -206,17 +214,18 @@ def run_client(clientId, cmodel, iters, learning_rate, argdicts = {}):
 
     input_sizes, target_sizes, output_sizes = None, None, None
     masks = None
-    is_malicious = True if clientId in malicious_clients else False
+    is_malicious = True if clientId in malicious_clients else False         # should always be False
 
-    cmodel = cmodel.to(device=device)
+    cmodel = cmodel.to(device=device)                                       # bleh
     cmodel.train()
 
     # TODO: if indeed enforce FedAvg, we will run fixed number of epochs, instead of iterations
-    for itr in range(iters):
+    for itr in range(iters):                                                # upload_epochs : deafault is 20
         it_start = time.time()
         fetchSuccess = False
 
-        while not fetchSuccess and numOfFailures < numOfTries:
+        # get the `next` (data, target) from the DataLoader
+        while not fetchSuccess and numOfFailures < numOfTries:              # first entry 0 < 5 according to the defaults
             try:
                 try:
                     if args.task == 'nlp':
@@ -229,8 +238,10 @@ def run_client(clientId, cmodel, iters, learning_rate, argdicts = {}):
                     elif args.task == 'voice':
                         (data, target, input_percentages, target_sizes), _ = next(train_data_itr_list[0])
                         input_sizes = input_percentages.mul_(int(data.size(3))).int()
+                    elif args.task == 'activity_recognition':
+                        data, _, target = next(train_data_itr_list[0]) 
                     else:
-                        (data, target) = next(train_data_itr_list[0])
+                        (data, target) = next(train_data_itr_list[0])       
 
                     fetchSuccess = True
                 except Exception as ex:
@@ -391,13 +402,13 @@ def run_client(clientId, cmodel, iters, learning_rate, argdicts = {}):
 def run(rank, model, queue, param_q, stop_flag, client_cfg):
     logging.info("====Worker: Start running")
 
-    global nextClientIds, global_trainDB, global_testDB, last_model_tensors
+    global nextClientIds, global_trainDB, global_testDB, last_model_tensors         # nextClientIds is [0] (for first entry here)
     criterion = None
 
     if args.task == 'voice':
         criterion = CTCLoss(reduction='mean').to(device=device)
-    else:
-        criterion = torch.nn.CrossEntropyLoss().to(device=device)
+    else:                                                                           # define loss criterion - CrossEntropyLoss
+        criterion = torch.nn.CrossEntropyLoss(reduction='mean').to(device=device)
 
     startTime = time.time()
 
@@ -406,10 +417,10 @@ def run(rank, model, queue, param_q, stop_flag, client_cfg):
     #model.train()
     model = model.to(device=device)
 
-    for idx, param in enumerate(model.parameters()):
+    for idx, param in enumerate(model.parameters()):                                # receive params from server in params.data
         dist.broadcast(tensor=param.data, src=0)
 
-    if args.load_model:
+    if args.load_model:                                                             # is False by default
         try:
             with open(modelPath, 'rb') as fin:
                 model = pickle.load(fin)
@@ -422,7 +433,7 @@ def run(rank, model, queue, param_q, stop_flag, client_cfg):
             sys.exit(-1)
 
     for idx, param in enumerate(model.parameters()):
-        last_model_tensors.append(copy.deepcopy(param.data))
+        last_model_tensors.append(copy.deepcopy(param.data))                        # put a copy of the model weights in to last_model_tensors
 
     print('Begin!')
     logging.info('\n' + repr(args) + '\n')
@@ -446,7 +457,7 @@ def run(rank, model, queue, param_q, stop_flag, client_cfg):
 
     last_test = time.time()
 
-    if args.read_models_path:
+    if args.read_models_path:                                       # default is False
         models_dir = scan_models(args.model_path)
         sorted_models_dir = sorted(models_dir)
 
@@ -454,7 +465,7 @@ def run(rank, model, queue, param_q, stop_flag, client_cfg):
 
     for epoch in range(1, int(args.epochs) + 1):
         try:
-            if epoch % args.decay_epoch == 0:
+            if epoch % args.decay_epoch == 0:                       #TODO learning_rate manipulation. Leave for now
                 learning_rate = max(args.min_learning_rate, learning_rate * args.decay_factor)
 
             trainedModels = []
@@ -468,20 +479,20 @@ def run(rank, model, queue, param_q, stop_flag, client_cfg):
 
             if not args.test_only:
                 # dump a copy of model
-                with open(tempModelPath, 'wb') as fout:
+                with open(tempModelPath, 'wb') as fout:                         # dump a pickle of the current model at tempModelPath
                     pickle.dump(model, fout)
 
-                for idx, nextClientId in enumerate(nextClientIds):
+                for idx, nextClientId in enumerate(nextClientIds):              # first entry is --> whatever is sent by the server
                     # roll back to the global model for simulation
-                    with open(tempModelPath, 'rb') as fin:
+                    with open(tempModelPath, 'rb') as fin:                      # load the just written model :O
                         model = pickle.load(fin)
 
                     _model_param, _loss, _trained_size, _speed, _time, _isSuccess = run_client(
-                                clientId=nextClientId,
-                                cmodel=model,
-                                learning_rate=learning_rate,
-                                iters=args.upload_epoch,
-                                argdicts={'iters': epoch}
+                                clientId=nextClientId,                          # whatever sent by the server --> 1
+                                cmodel=model,                                   # the just read model file
+                                learning_rate=learning_rate,                    # as specd out in args,learning_rate
+                                iters=args.upload_epoch,                        # default is 20
+                                argdicts={'iters': epoch}                       # value at first run --> 1
                             )
 
                     if _isSuccess is False:
@@ -631,7 +642,7 @@ def initiate_channel():
 if __name__ == "__main__":
     #global global_trainDB, global_testDB
 
-    setup_seed(args.this_rank)
+    setup_seed(args.this_rank)  # this rank is passed by incrementing for each client by 1
 
     manager = initiate_channel()
     manager.connect()
@@ -643,44 +654,52 @@ if __name__ == "__main__":
     logging.info("====Start to initialize dataset")
 
     gc.disable()
-    model, train_dataset, test_dataset = init_dataset()
+    model, train_dataset, test_dataset = init_dataset() # returns Net(), datasets.HMDB51(), None  
     gc.enable()
     gc.collect()
 
-    splitTrainRatio = []
-    client_cfg = {}
+    splitTrainRatio = []    # what is this ?
+    client_cfg = {}         # clients configurations
 
     # Initialize PS - client communication channel
-    world_size = len(workers) + 1
-    this_rank = args.this_rank
+    world_size = len(workers) + 1                       # world size = 5
+    this_rank = args.this_rank                          # client_id (incremented)
     dist.init_process_group(args.backend, rank=this_rank, world_size=world_size)
 
     # Split the dataset
     # total_worker != 0 indicates we create more virtual clients for simulation
-    if args.total_worker > 0 and args.duplicate_data == 1:
-        workers = [i for i in range(1, args.total_worker + 1)]
+    if args.total_worker > 0 and args.duplicate_data == 1:      # total-worker = 4 duplicate data = 1 by defaults
+        workers = [i for i in range(1, args.total_worker + 1)]  # [1,2,3,4]
 
     # load data partitioner (entire_train_data)
-    dataConf = os.path.join(args.data_dir, 'sampleConf') if args.data_set == 'imagenet' else None
+    dataConf = os.path.join(args.data_dir, 'sampleConf') if args.data_set == 'imagenet' else None   # dataconf = None for hmdb51
 
     logging.info("==== Starting training data partitioner =====")
-    global_trainDB = DataPartitioner(data=train_dataset, splitConfFile=dataConf,
-                        numOfClass=args.num_class, dataMapFile=args.data_mapfile)
+    # create training data Partitioner. What does a data partitioner do ?
+
+    global_trainDB = DataPartitioner(data=train_dataset, splitConfFile=dataConf,    # train_dataset:datasets.HMDB51(), splitConfFile=None
+                        numOfClass=args.num_class, dataMapFile=args.data_mapfile)   # num_class = 51 for hmdb51, dataMapFile=None
+
+    # create a data_partitioner for the entire data set. But the length is only of the files included in the annotated dir
     logging.info("==== Finished training data partitioner =====")
 
-    dataDistribution = [int(x) for x in args.sequential.split('-')]
-    distributionParam = [float(x) for x in args.zipf_alpha.split('-')]
+    dataDistribution = [int(x) for x in args.sequential.split('-')]             # default = '0'; dataDistribution=['0']
+    distributionParam = [float(x) for x in args.zipf_alpha.split('-')]          # default = '5'; distributionParam = ['5.0']
 
-    for i in range(args.duplicate_data):
-        partition_dataset(global_trainDB, workers, splitTrainRatio, dataDistribution[i],
-                                    filter_class=args.filter_class, arg = {'balanced_client':0, 'param': distributionParam[i]})
-    global_trainDB.log_selection()
+    for i in range(args.duplicate_data):                                        # default duplicate_data = 1
+        partition_dataset(global_trainDB, workers, splitTrainRatio, dataDistribution[i],    # default dataDistribution=sequential=0, splitTrainRatio = [], workers = [1,2,3,4]
+                                    filter_class=args.filter_class, arg = {'balanced_client':0, 'param': distributionParam[i]}) # default filter_class = 0, `param`` = 5.0
+    global_trainDB.log_selection()                                              # setting the classPerWorker and numOfLabels(=51) to None for some goddamn reason
 
-    report_data_info(this_rank, q)
+    report_data_info(this_rank, q)                                              # send out the partition lengths and a list [0,0,0,0] of distances I assume !?
     splitTestRatio = []
 
-    logging.info("==== Starting testing data partitioner =====")
-    testsetPartitioner = DataPartitioner(data=test_dataset, isTest=True, numOfClass=args.num_class)
+
+    #TODO skip this part of testing for now cuz Im fed up of this now
+
+    logging.info("==== Starting testing data partitioner =====")                
+    if test_dataset is not None:
+        testsetPartitioner = DataPartitioner(data=test_dataset, isTest=True, numOfClass=args.num_class)
     logging.info("==== Finished testing data partitioner =====")
 
     collate_fn = None
@@ -690,14 +709,15 @@ if __name__ == "__main__":
     elif args.task == 'voice':
         collate_fn = voice_collate_fn
 
-    partition_dataset(testsetPartitioner, [i for i in range(world_size-1)], splitTestRatio)
-    global_testDB = select_dataset(this_rank, testsetPartitioner, batch_size=args.test_bsz, isTest=True, collate_fn=collate_fn)
+    if test_dataset is not None:
+        partition_dataset(testsetPartitioner, [i for i in range(world_size-1)], splitTestRatio)
+        global_testDB = select_dataset(this_rank, testsetPartitioner, batch_size=args.test_bsz, isTest=True, collate_fn=collate_fn)
 
-    stop_flag = Value(c_bool, False)
+    stop_flag = Value(c_bool, False)                                            # a threadsafe flag of type boolean Ref - https://stackoverflow.com/questions/32822013/python-share-values
 
     # no need to keep the raw data
-    del train_dataset, test_dataset
+    del train_dataset, test_dataset                                             # delete datasets cuz we've already trashed them by abstraction (-_-")
 
-    init_myprocesses(this_rank, world_size, model,
-                                          q, param_q, stop_flag,
+    init_myprocesses(this_rank, world_size, model,                              # call -> init_myprocesses(client_id, 5, Net(), queue, paramter_queue, stop flag(threadsafe), fn, 
+                                          q, param_q, stop_flag,                # name, defaul = nccl,  client_cfg = {})
                                           run, args.backend, client_cfg)

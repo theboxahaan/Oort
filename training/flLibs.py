@@ -56,7 +56,8 @@ def init_dataset():
     global tokenizer
 
     outputClass = {'Mnist': 10, 'cifar10': 10, "imagenet": 1000, 'emnist': 47,
-                    'openImg': 596, 'google_speech': 35, 'femnist': 62, 'yelp': 5
+                    'openImg': 596, 'google_speech': 35, 'femnist': 62, 'yelp': 5,
+                    'hmdb51': 51
                 }
 
     logging.info("====Initialize the model")
@@ -100,6 +101,33 @@ def init_dataset():
             # Should not reach here
             logging.info('Model must be resnet or mobilenet')
             sys.exit(-1)
+
+    elif args.task == 'activity_recognition':
+        from torchvision import models, datasets, transforms
+
+        class Net(torch.nn.Module): #define the Neural Net
+            def __init__(self):
+                super(Net, self).__init__()
+                self.base_model = torch.nn.Sequential(*list(models.video.r3d_18(pretrained=True).children())[:-1])
+                self.fc = torch.nn.Linear(512, 51)
+
+            def forward(self, x):
+                out = self.base_model(x)
+                out = out.flatten(1)
+                out = self.fc(out)
+                return out
+        
+        model = Net()               # initialise the model
+        device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+        # model = model.to(device)
+
+        def set_parameter_requires_grad_video(model):
+            for param in model.parameters():
+                param.requires_grad = False
+            model.fc.weight.requires_grad = True
+            model.fc.bias.requires_grad = True
+        set_parameter_requires_grad_video(model)
+
 
     elif args.task == 'voice':
         from utils.voice_model import DeepSpeech, supported_rnns
@@ -225,6 +253,37 @@ def init_dataset():
                                           normalize=True,
                                           speed_volume_perturb=False,
                                           spec_augment=False)
+        
+        elif args.data_set == 'hmdb51':
+            import transforms as T
+            from torchvision import datasets
+            # data_dir = r'/home/dipesh'
+    
+            # this path contains the dataset partitioned into `non_idd` name paths
+            # default will go to hmdb51/dev_4/noniid_0.0/slice_1/test_train_splits
+            annotations_data = f"hmdb51/dev_{args.device_setup}/noniid_{args.non_iid_bias}/slice_{args.dataslice}/test_train_splits"
+            
+            data_transforms = {
+                'train': transforms.Compose([
+                    T.ToFloatTensorInZeroOne(),
+                    T.Resize((128, 171)),
+                    T.RandomHorizontalFlip(),
+                    T.Normalize(mean=[0.43216, 0.394666, 0.37645], std=[0.22803, 0.22145, 0.216989]),
+                    T.RandomCrop((112, 112))	
+                ]),
+                'test': transforms.Compose([
+                    T.ToFloatTensorInZeroOne(),
+                    T.Resize((128, 171)),
+                    T.Normalize(mean=[0.43216, 0.394666, 0.37645], std=[0.22803, 0.22145, 0.216989]),
+                    T.CenterCrop((112, 112))
+                ]),
+            }
+            num_frames = 8
+            clip_steps = 50
+            train_dataset = datasets.HMDB51(root = args.data_dir, annotation_path = annotations_data, frames_per_clip = num_frames,step_between_clips = clip_steps, train = True,transform = data_transforms['train'])
+
+            test_datatset = None
+
         else:
             print('DataSet must be {}!'.format(['Mnist', 'Cifar', 'openImg', 'blog', 'stackoverflow', 'speech', 'yelp']))
             sys.exit(-1)
