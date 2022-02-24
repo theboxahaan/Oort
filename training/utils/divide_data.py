@@ -399,7 +399,8 @@ class DataPartitioner(object):
             if not self.skip_partition:                                         # skip partition is False by default
                 for id, partition in enumerate(self.partitions):
                     for index in partition:
-                        tempClassPerWorker[id][self.indexToLabel[index]] += 1   # indexToLabel[i] is basically labels[i]
+                        t = tempClassPerWorker[id]
+                        t[self.indexToLabel[index]] += 1   # indexToLabel[i] is basically labels[i]
                                                                                 # so basically, the matrix will show how many vids in each class for each worker
         else:
             logging.info('========= Start of Class/Worker =========\n')
