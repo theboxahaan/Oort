@@ -478,6 +478,7 @@ def run(rank, model, queue, param_q, stop_flag, client_cfg):
 
             if not args.test_only:
                 # dump a copy of model
+<<<<<<< HEAD
                 #with open(tempModelPath, 'wb') as fout:                         # dump a pickle of the current model at tempModelPath
                   #pickle.dump(model, fout)
 
@@ -486,7 +487,7 @@ def run(rank, model, queue, param_q, stop_flag, client_cfg):
                    # with open(tempModelPath, 'rb') as fin:                      # load the just written model :O
                   # model = pickle.load(fin)
                     logging.info('right before i call the client for testing')
-                    _model_param, _loss, _trained_size, _speed, _time, _isSuccess = run_client(
+                   _model_param, _loss, _trained_size, _speed, _time, _isSuccess = run_client(
                                 clientId=nextClientId,                          # whatever sent by the server --> 1
                                 cmodel=model,                                   # the just read model file
                                 learning_rate=learning_rate,                    # as specd out in args,learning_rate
