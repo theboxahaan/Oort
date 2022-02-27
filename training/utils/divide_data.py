@@ -38,7 +38,7 @@ class DataPartitioner(object):
     import torch
     # len(sizes) is the number of workers
     # sequential 1-> random 2->zipf 3-> identical
-    def __init__(self, data:torch.utils.data.Datasets, numOfClass:int=0, seed=10, splitConfFile=None, isTest=False, dataMapFile=None):
+    def __init__(self, data, numOfClass:int=0, seed=10, splitConfFile=None, isTest=False, dataMapFile=None):
         self.partitions = []
         self.rng = Random() # some random numer
         self.rng.seed(seed) # seed the random number
@@ -64,7 +64,7 @@ class DataPartitioner(object):
         self.targets = OrderedDict()                                            # set an OrderedDict for some labels
         self.indexToLabel = {}
         self.totalSamples = 0
-        self.data_len = len(self.indices)
+        self.data_len = len(self.data.indices)
 
         self.task = args.task                                                   # this is set to 'activity_recognition'
         self.skip_partition = True if self.labels[0] is -1 or args.skip_partition is True else False    # default becomes false but what does skip_partiton do ?
@@ -540,8 +540,10 @@ class DataPartitioner(object):
         self.rng.shuffle(resultIndex)                   # shuffle the list
 
         #logging.info("====Data length for client {} is {}".format(partition, len(resultIndex)))
-        return Partition(self.data, resultIndex)        # self.data = dataset.HMDB51(), resultIndex = shuffled vid index (corresponding to label)
+        #return Partition(self.data, resultIndex)        # self.data = dataset.HMDB51(), resultIndex = shuffled vid index (corresponding to label)
         # think of this as returning a partition sized view into the dataset
+        return self.data
+
 
     def getDistance(self):
         return self.workerDistance

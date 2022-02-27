@@ -102,6 +102,7 @@ class clientSampler(object):
         lenPossible = len(self.feasibleClients)
 
         while True:
+            logging.info(f'self.feasibleClients--->{self.feasibleClients}---> {init_id}')
             clientId = str(self.feasibleClients[init_id])
             csize = self.Clients[clientId].size
             if csize >= self.filter_less and csize <= self.filter_more:

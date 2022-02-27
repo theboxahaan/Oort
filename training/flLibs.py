@@ -22,7 +22,7 @@ from torch.autograd import Variable
 from torchvision import datasets, transforms
 import torchvision.models as tormodels
 from torch.utils.data.sampler import WeightedRandomSampler
-from torch_baidu_ctc import CTCLoss
+# from torch_baidu_ctc import CTCLoss
 
 # libs from FLBench
 from argParser import args
@@ -261,7 +261,7 @@ def init_dataset():
     
             # this path contains the dataset partitioned into `non_idd` name paths
             # default will go to hmdb51/dev_4/noniid_0.0/slice_1/test_train_splits
-            annotations_data = f"hmdb51/dev_{args.device_setup}/noniid_{args.non_iid_bias}/slice_{args.dataslice}/test_train_splits"
+            annotations_data = f"/home/dipesh/modded/Oort/fedvision_noniid/hmdb51/dev_{args.device_setup}/noniid_{args.non_iid_bias}/slice_{args.dataslice}/test_train_splits"
             
             data_transforms = {
                 'train': transforms.Compose([
@@ -282,7 +282,7 @@ def init_dataset():
             clip_steps = 50
             train_dataset = datasets.HMDB51(root = args.data_dir, annotation_path = annotations_data, frames_per_clip = num_frames,step_between_clips = clip_steps, train = True,transform = data_transforms['train'])
 
-            test_datatset = None
+            test_dataset = None
 
         else:
             print('DataSet must be {}!'.format(['Mnist', 'Cifar', 'openImg', 'blog', 'stackoverflow', 'speech', 'yelp']))

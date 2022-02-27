@@ -177,7 +177,7 @@ def run_client(clientId, cmodel, iters, learning_rate, argdicts = {}):
         criterion = CTCLoss(reduction='none').to(device=device)
     else:
         # criterion = torch.nn.CrossEntropyLoss(reduction='none').to(device=device)
-        torch.nn.CrossEntropyLoss(reduction="mean").to(device=device)
+        criterion = torch.nn.CrossEntropyLoss(reduction="mean").to(device=device)
 
     train_data_itr_list = []
     collate_fn = None
@@ -288,7 +288,6 @@ def run_client(clientId, cmodel, iters, learning_rate, argdicts = {}):
         local_trained += len(target)
 
         comp_start = time.time()
-
         if args.task == 'nlp':
             outputs = cmodel(data, masked_lm_labels=target) if args.mlm else cmodel(data, labels=target)
             loss = outputs[0]
@@ -307,7 +306,8 @@ def run_client(clientId, cmodel, iters, learning_rate, argdicts = {}):
         temp_loss = 0.
         loss_cnt = 1.
 
-        loss_list = loss.tolist() if args.task != 'nlp' else [loss.item()]
+        loss_list = loss.tolist() if args.task != 'nlp' and args.task != 'activity_recognition' else [loss.item()]
+
         for l in loss_list:
             temp_loss += l**2
 
@@ -327,8 +327,7 @@ def run_client(clientId, cmodel, iters, learning_rate, argdicts = {}):
         # ========= Define the backward loss ==============
         optimizer.zero_grad()
         loss.mean().backward()
-
-        if args.task != 'nlp' and args.task != 'text_clf':
+        if args.task != 'nlp' and args.task != 'text_clf' and args.task !='activity_recognition':
             delta_w = optimizer.get_delta_w(learning_rate)
 
             if not args.proxy_avg:
@@ -479,14 +478,14 @@ def run(rank, model, queue, param_q, stop_flag, client_cfg):
 
             if not args.test_only:
                 # dump a copy of model
-                with open(tempModelPath, 'wb') as fout:                         # dump a pickle of the current model at tempModelPath
-                    pickle.dump(model, fout)
+                #with open(tempModelPath, 'wb') as fout:                         # dump a pickle of the current model at tempModelPath
+                  #pickle.dump(model, fout)
 
                 for idx, nextClientId in enumerate(nextClientIds):              # first entry is --> whatever is sent by the server
                     # roll back to the global model for simulation
-                    with open(tempModelPath, 'rb') as fin:                      # load the just written model :O
-                        model = pickle.load(fin)
-
+                   # with open(tempModelPath, 'rb') as fin:                      # load the just written model :O
+                  # model = pickle.load(fin)
+                    logging.info('right before i call the client for testing')
                     _model_param, _loss, _trained_size, _speed, _time, _isSuccess = run_client(
                                 clientId=nextClientId,                          # whatever sent by the server --> 1
                                 cmodel=model,                                   # the just read model file
@@ -494,7 +493,6 @@ def run(rank, model, queue, param_q, stop_flag, client_cfg):
                                 iters=args.upload_epoch,                        # default is 20
                                 argdicts={'iters': epoch}                       # value at first run --> 1
                             )
-
                     if _isSuccess is False:
                         continue
 
@@ -643,7 +641,8 @@ if __name__ == "__main__":
     #global global_trainDB, global_testDB
 
     setup_seed(args.this_rank)  # this rank is passed by incrementing for each client by 1
-
+    import time
+    time.sleep(3)
     manager = initiate_channel()
     manager.connect()
 
