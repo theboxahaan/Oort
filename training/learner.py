@@ -478,16 +478,14 @@ def run(rank, model, queue, param_q, stop_flag, client_cfg):
 
             if not args.test_only:
                 # dump a copy of model
-<<<<<<< HEAD
                 #with open(tempModelPath, 'wb') as fout:                         # dump a pickle of the current model at tempModelPath
-                  #pickle.dump(model, fout)
-
+                  # pickle.dump(model, fout)
                 for idx, nextClientId in enumerate(nextClientIds):              # first entry is --> whatever is sent by the server
-                    # roll back to the global model for simulation
+                   # roll back to the global model for simulation
                    # with open(tempModelPath, 'rb') as fin:                      # load the just written model :O
                   # model = pickle.load(fin)
                     logging.info('right before i call the client for testing')
-                   _model_param, _loss, _trained_size, _speed, _time, _isSuccess = run_client(
+                    _model_param, _loss, _trained_size, _speed, _time, _isSuccess = run_client(
                                 clientId=nextClientId,                          # whatever sent by the server --> 1
                                 cmodel=model,                                   # the just read model file
                                 learning_rate=learning_rate,                    # as specd out in args,learning_rate
@@ -594,6 +592,7 @@ def run(rank, model, queue, param_q, stop_flag, client_cfg):
                                       )
                     test_loss, acc, acc_5, testResults = test_model(rank, model, rank_train_data, criterion=criterion, tokenizer=tokenizer)
                 else:
+                    logging.info(f'>>>>>>>>>>>>>>>>>>> getting into the test set')
                     test_loss, acc, acc_5, testResults = test_model(rank, model, global_testDB, criterion=criterion, tokenizer=tokenizer)
 
                 logging.info("After aggregation epoch {}, CumulTime {}, eval_time {}, test_loss {}, test_accuracy {}, test_5_accuracy {} \n"

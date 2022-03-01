@@ -261,7 +261,8 @@ def init_dataset():
     
             # this path contains the dataset partitioned into `non_idd` name paths
             # default will go to hmdb51/dev_4/noniid_0.0/slice_1/test_train_splits
-            annotations_data = f"/home/dipesh/modded/Oort/fedvision_noniid/hmdb51/dev_{args.device_setup}/noniid_{args.non_iid_bias}/slice_{args.dataslice}/test_train_splits"
+            annotations_data = f"/home/dipesh/modded/Oort/fedvision_noniid/hmdb51/dev_{args.device_setup}/noniid_{args.non_iid_bias}/slice_{args.this_rank}/test_train_splits"
+            annotations_data_test = f"/home/dipesh/modded/Oort/fedvision_noniid/hmdb51/test_train_splits"
             
             data_transforms = {
                 'train': transforms.Compose([
@@ -283,6 +284,8 @@ def init_dataset():
             train_dataset = datasets.HMDB51(root = args.data_dir, annotation_path = annotations_data, frames_per_clip = num_frames,step_between_clips = clip_steps, train = True,transform = data_transforms['train'])
 
             test_dataset = None
+            #test_dataset = datasets.HMDB51(root = args.data_dir, annotation_path = annotations_data, frames_per_clip = num_frames,step_between_clips = clip_steps, train = True,transform = data_transforms['train'])
+
 
         else:
             print('DataSet must be {}!'.format(['Mnist', 'Cifar', 'openImg', 'blog', 'stackoverflow', 'speech', 'yelp']))
