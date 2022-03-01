@@ -594,7 +594,8 @@ def run(rank, model, queue, param_q, stop_flag, client_cfg):
                 else:
                     logging.info(f'>>>>>>>>>>>>>>>>>>> getting into the test set')
                     test_loss, acc, acc_5, testResults = test_model(rank, model, global_testDB, criterion=criterion, tokenizer=tokenizer)
-
+                    # logging.info(f'the output of test_model = {q}')
+                
                 logging.info("After aggregation epoch {}, CumulTime {}, eval_time {}, test_loss {}, test_accuracy {}, test_5_accuracy {} \n"
                             .format(epoch, round(time.time() - startTime, 4), round(time.time() - evalStart, 4), test_loss, acc, acc_5))
 

@@ -132,7 +132,9 @@ def test_model(rank, model, test_data, criterion=nn.NLLLoss(), tokenizer=None):
     if args.task == 'voice':
         decoder = GreedyDecoder(model.labels, blank_index=model.labels.index('_'))
 
-    for data, target in test_data:
+    ##### MAKING A CHNAGE HERE THAT BREAKS OORT FOR EVERYTHING ELSE ######
+    ##### [WARNING CHANGE] #####
+    for data,_, target in test_data: 
         if args.task == 'nlp':
 
             data, target = mask_tokens(data, tokenizer, args) if args.mlm else (data, data)
@@ -176,6 +178,14 @@ def test_model(rank, model, test_data, criterion=nn.NLLLoss(), tokenizer=None):
 
             correct += acc[0].item()
             top_5 += acc[1].item()
+ 
+        elif args.task == 'activity_recognition':
+            with torch.no_grad():
+                data, target = Variable(data).cuda(), Variable(target).cuda() 
+                output = model(data)
+                test_loss += criterion(output, target).item()
+                prediction = output.argmax(dim=1, keepdim=True)
+                correct += prediction.eq(target.view_as(prediction)).sum().item()
 
         elif args.task == 'text_clf':
             (inputs, masks) = data
