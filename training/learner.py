@@ -223,6 +223,7 @@ def run_client(clientId, cmodel, iters, learning_rate, argdicts = {}):
     for itr in range(iters):                                                # upload_epochs : deafault is 20
         it_start = time.time()
         fetchSuccess = False
+        _act_correct = 0
 
         # get the `next` (data, target) from the DataLoader
         while not fetchSuccess and numOfFailures < numOfTries:              # first entry 0 < 5 according to the defaults
@@ -239,7 +240,7 @@ def run_client(clientId, cmodel, iters, learning_rate, argdicts = {}):
                         (data, target, input_percentages, target_sizes), _ = next(train_data_itr_list[0])
                         input_sizes = input_percentages.mul_(int(data.size(3))).int()
                     elif args.task == 'activity_recognition':
-                        data, _, target = next(train_data_itr_list[0]) 
+                        data, _, target = next(train_data_itr_list[0])
                     else:
                         (data, target) = next(train_data_itr_list[0])       
 
@@ -251,7 +252,7 @@ def run_client(clientId, cmodel, iters, learning_rate, argdicts = {}):
                             del train_data_itr_list[0]
                     except Exception as e:
                         logging.info("====Error {}".format(str(e)))
-
+	
                     tempData = select_dataset(
                             clientId, global_trainDB,
                             batch_size=args.batch_size,
@@ -302,10 +303,12 @@ def run_client(clientId, cmodel, iters, learning_rate, argdicts = {}):
         else:
             output = cmodel(data)
             loss = criterion(output, target)
+            _act_prediction  = output.argmax(dim=1, keepdim=True)
+            _act_correct += _act_prediction.eq(target.view_as(_act_prediction)).sum().item()
 
         temp_loss = 0.
         loss_cnt = 1.
-
+        logging.info(f'training accuracy *************=>{_act_correct/len(client_train_data.dataset)} ')
         loss_list = loss.tolist() if args.task != 'nlp' and args.task != 'activity_recognition' else [loss.item()]
 
         for l in loss_list:
@@ -354,6 +357,7 @@ def run_client(clientId, cmodel, iters, learning_rate, argdicts = {}):
          #           (curBatch % total_batch_size), total_batch_size, temp_loss,
          #           round(time.time() - it_start, 4), round(comp_duration, 4), round(comp_start - it_start, 4), epoch_train_loss, is_malicious))
 
+    
     # remove the one with LRU
     if len(global_client_profile) > args.max_iter_store:
         allClients = global_data_iter.keys()
@@ -373,6 +377,8 @@ def run_client(clientId, cmodel, iters, learning_rate, argdicts = {}):
                     pass
         del train_data_itr_list
         del global_data_iter[clientId]
+        gc.collect()
+        torch.cuda.empty_cache()
 
     # we only transfer the delta_weight
     model_param = [(param.data - last_model_tensors[idx]).cpu().numpy() for idx, param in enumerate(cmodel.parameters())]
