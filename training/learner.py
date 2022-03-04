@@ -223,9 +223,8 @@ def run_client(clientId, cmodel, iters, learning_rate, argdicts = {}):
     for itr in range(iters):                                                # upload_epochs : deafault is 20
         it_start = time.time()
         fetchSuccess = False
-        _act_correct = 0
-
         # get the `next` (data, target) from the DataLoader
+        _act_correct = 0
         while not fetchSuccess and numOfFailures < numOfTries:              # first entry 0 < 5 according to the defaults
             try:
                 try:
@@ -241,6 +240,7 @@ def run_client(clientId, cmodel, iters, learning_rate, argdicts = {}):
                         input_sizes = input_percentages.mul_(int(data.size(3))).int()
                     elif args.task == 'activity_recognition':
                         data, _, target = next(train_data_itr_list[0])
+                        logging.info(f'target: {target} ; data: {type(data)}')
                     else:
                         (data, target) = next(train_data_itr_list[0])       
 
@@ -308,7 +308,8 @@ def run_client(clientId, cmodel, iters, learning_rate, argdicts = {}):
 
         temp_loss = 0.
         loss_cnt = 1.
-        logging.info(f'training accuracy *************=>{_act_correct/len(client_train_data.dataset)} ')
+        logging.info(f'training acc: {_act_correct*100/32.0:.2f}')
+        #logging.info(f'training accuracy[{len(client_train_data.dataset)}] =====>{_act_correct/len(client_train_data.dataset)} ')
         loss_list = loss.tolist() if args.task != 'nlp' and args.task != 'activity_recognition' else [loss.item()]
 
         for l in loss_list:
@@ -329,7 +330,8 @@ def run_client(clientId, cmodel, iters, learning_rate, argdicts = {}):
 
         # ========= Define the backward loss ==============
         optimizer.zero_grad()
-        loss.mean().backward()
+        #loss.mean().backward()
+        loss.backward()
         if args.task != 'nlp' and args.task != 'text_clf' and args.task !='activity_recognition':
             delta_w = optimizer.get_delta_w(learning_rate)
 
