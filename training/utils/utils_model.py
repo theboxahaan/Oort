@@ -135,6 +135,7 @@ def test_model(rank, model, test_data, criterion=nn.NLLLoss(), tokenizer=None):
     ##### MAKING A CHNAGE HERE THAT BREAKS OORT FOR EVERYTHING ELSE ######
     ##### [WARNING CHANGE] #####
     for data,_, target in test_data: 
+        logging.info(f'this is the test_data dataset {test_data}')
         if args.task == 'nlp':
 
             data, target = mask_tokens(data, tokenizer, args) if args.mlm else (data, data)
@@ -261,7 +262,7 @@ def test_model(rank, model, test_data, criterion=nn.NLLLoss(), tokenizer=None):
     if args.task == 'tag':
         # precision, recall, f1, sup = precision_recall_fscore_support(targets_list, preds, average='samples')
         top_5, correct, test_len = cal_accuracy(targets_list, preds)
-
+    logging.info(f'the value of test_len = {test_len}')
     logging.info('Rank {}: Test set: Average loss: {}, Top-1 Accuracy: {}/{} ({}), Top-5 Accuracy: {}'
           .format(rank, test_loss, correct, len(test_data.dataset), acc, acc_5))
 

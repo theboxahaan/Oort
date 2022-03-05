@@ -219,12 +219,12 @@ def run_client(clientId, cmodel, iters, learning_rate, argdicts = {}):
     cmodel = cmodel.to(device=device)                                       # bleh
     cmodel.train()
 
+    _act_correct = 0
     # TODO: if indeed enforce FedAvg, we will run fixed number of epochs, instead of iterations
     for itr in range(iters):                                                # upload_epochs : deafault is 20
         it_start = time.time()
         fetchSuccess = False
         # get the `next` (data, target) from the DataLoader
-        _act_correct = 0
         while not fetchSuccess and numOfFailures < numOfTries:              # first entry 0 < 5 according to the defaults
             try:
                 try:
@@ -308,7 +308,8 @@ def run_client(clientId, cmodel, iters, learning_rate, argdicts = {}):
 
         temp_loss = 0.
         loss_cnt = 1.
-        logging.info(f'training acc: {_act_correct*100/32.0:.2f}')
+        logging.info(f'training acc: {_act_correct*100/local_trained:.4f}%')
+        #logging.info(f'training acc: {_act_correct*100/32.0:.2f}')
         #logging.info(f'training accuracy[{len(client_train_data.dataset)}] =====>{_act_correct/len(client_train_data.dataset)} ')
         loss_list = loss.tolist() if args.task != 'nlp' and args.task != 'activity_recognition' else [loss.item()]
 
@@ -486,12 +487,15 @@ def run(rank, model, queue, param_q, stop_flag, client_cfg):
 
             if not args.test_only:
                 # dump a copy of model
-                #with open(tempModelPath, 'wb') as fout:                         # dump a pickle of the current model at tempModelPath
-                  # pickle.dump(model, fout)
+                with open(tempModelPath, 'wb') as fout:                         # dump a pickle of the current model at tempModelPath
+                    # pickle.dump(model, fout)
+                    torch.save(model.state_dict(), fout)
+
                 for idx, nextClientId in enumerate(nextClientIds):              # first entry is --> whatever is sent by the server
                    # roll back to the global model for simulation
                    # with open(tempModelPath, 'rb') as fin:                      # load the just written model :O
-                  # model = pickle.load(fin)
+                   #  model = pickle.load(fin)
+                    model.load_state_dict(torch.load(tempModelPath))
                     logging.info('right before i call the client for testing')
                     _model_param, _loss, _trained_size, _speed, _time, _isSuccess = run_client(
                                 clientId=nextClientId,                          # whatever sent by the server --> 1
